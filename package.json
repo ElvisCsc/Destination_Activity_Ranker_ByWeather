@@ -1,0 +1,21 @@
+{
+  "name": "destination_activity_ranker_byweather",
+  "version": "1.0.0",
+  "description": "",
+  "workspaces": ["backend", "frontend"],
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ElvisCsc/Destination_Activity_Ranker_ByWeather.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ElvisCsc/Destination_Activity_Ranker_ByWeather/issues"
+  },
+  "homepage": "https://github.com/ElvisCsc/Destination_Activity_Ranker_ByWeather#readme"
+}
