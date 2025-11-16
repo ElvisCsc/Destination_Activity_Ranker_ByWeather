@@ -1,10 +1,10 @@
 interface DailyForecast {
     dt: number;
-    temp: { max: number; min: number };
-    weather: [{ id: number }];
-    rain?: number;
-    snow?: number;
+    temp: { max: number };
+    rain: number;
+    snow: number;
     wind_speed: number;
+    weather: { id: number }[];
 }
 
 type Activity = 'Skiing' | 'Surfing' | 'Outdoor sightseeing' | 'Indoor sightseeing';
@@ -17,14 +17,15 @@ interface Ranking {
 }
 
 export function computeRankings(dailyData: DailyForecast[], city: string): Ranking[] {
+    if (dailyData.length === 0) throw new Error('No forecast data');
+
     const activities: Activity[] = ['Skiing', 'Surfing', 'Outdoor sightseeing', 'Indoor sightseeing'];
     const scores: Record<Activity, number> = {} as Record<Activity, number>;
 
     activities.forEach(activity => {
         let totalScore = 0;
-
         dailyData.forEach(day => {
-            const { temp, rain = 0, snow = 0, wind_speed: wind, weather } = day;
+            const { temp, rain, snow, wind_speed: wind, weather } = day;
             const tempMax = temp.max;
             const weatherCode = weather[0].id;
 
@@ -37,10 +38,11 @@ export function computeRankings(dailyData: DailyForecast[], city: string): Ranki
                     dailyScore = 0.4 * Math.min(Math.max(tempMax - 15, 0) / 10, 1) + 0.3 * (Math.abs(wind - 6) < 2 ? 1 : Math.max(0, 1 - Math.abs(wind - 6) / 4)) + 0.3 * Math.max(0, 1 - rain / 5);
                     break;
                 case 'Outdoor sightseeing':
-                    dailyScore = 0.3 * (Math.abs(tempMax - 20) < 5 ? 1 : Math.max(0, 1 - Math.abs(tempMax - 20) / 10)) + 0.3 * (1 - rain / 5) + 0.2 * Math.max(0, (5 - wind) / 5) + 0.2 * (weatherCode < 300 ? 1 : 0.5);
+                    dailyScore = 0.3 * (Math.abs(tempMax - 20) < 5 ? 1 : Math.max(0, 1 - Math.abs(tempMax - 20) / 10)) + 0.3 * Math.max(0, 1 - rain / 5) + 0.2 * Math.max(0, (5 - wind) / 5) + 0.2 * (weatherCode < 3 ? 1 : 0.5);  // WMO codes: 0-2 clear/cloudy
                     break;
                 case 'Indoor sightseeing':
-                    dailyScore = 1 - (0.3 * (Math.abs(tempMax - 20) < 5 ? 1 : Math.max(0, 1 - Math.abs(tempMax - 20) / 10)) + 0.3 * (1 - rain / 5) + 0.2 * Math.max(0, (5 - wind) / 5) + 0.2 * (weatherCode < 300 ? 1 : 0.5)); // Inverse outdoor
+                    const outdoorScore = 0.3 * (Math.abs(tempMax - 20) < 5 ? 1 : Math.max(0, 1 - Math.abs(tempMax - 20) / 10)) + 0.3 * Math.max(0, 1 - rain / 5) + 0.2 * Math.max(0, (5 - wind) / 5) + 0.2 * (weatherCode < 3 ? 1 : 0.5);
+                    dailyScore = 1 - outdoorScore;
                     break;
             }
             totalScore += dailyScore;
@@ -53,6 +55,6 @@ export function computeRankings(dailyData: DailyForecast[], city: string): Ranki
         activity,
         score: Math.round(scores[activity]),
         rank: index + 1,
-        details: `Average score over 7 days for ${city}`,
+        details: `Average over 7 days for ${city}`,
     }));
 }

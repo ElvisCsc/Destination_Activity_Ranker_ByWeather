@@ -1,4 +1,4 @@
-import { getActivityRankings } from './services/weatherService';
+import { getActivityRankings } from './services/weatherServices';
 
 export const resolvers = {
     Query: {
