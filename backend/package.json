@@ -2,7 +2,11 @@
   "name": "backend",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "test": "jest"
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "build": "tsc"
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",

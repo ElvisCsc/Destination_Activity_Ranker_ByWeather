@@ -1,26 +1,17 @@
-interface DailyForecast {
-    dt: number;
-    temp: { max: number };
-    rain: number;
-    snow: number;
-    wind_speed: number;
-    weather: { id: number }[];
-}
+import { DailyForecast, ActivityType, ActivityRanking, WeatherCondition } from '../types/weather';
 
 type Activity = 'Skiing' | 'Surfing' | 'Outdoor sightseeing' | 'Indoor sightseeing';
 
-interface Ranking {
-    activity: Activity;
-    score: number;
-    rank: number;
-    details: string;
-}
-
-export function computeRankings(dailyData: DailyForecast[], city: string): Ranking[] {
+export function computeRankings(dailyData: DailyForecast[], city: string): ActivityRanking[] {
     if (dailyData.length === 0) throw new Error('No forecast data');
 
-    const activities: Activity[] = ['Skiing', 'Surfing', 'Outdoor sightseeing', 'Indoor sightseeing'];
-    const scores: Record<Activity, number> = {} as Record<Activity, number>;
+    const activities = Object.values(ActivityType);
+    const scores: Record<ActivityType, number> = {
+        [ActivityType.SKIING]: 0,
+        [ActivityType.SURFING]: 0,
+        [ActivityType.OUTDOOR_SIGHTSEEING]: 0,
+        [ActivityType.INDOOR_SIGHTSEEING]: 0
+    };
 
     activities.forEach(activity => {
         let totalScore = 0;
@@ -28,20 +19,22 @@ export function computeRankings(dailyData: DailyForecast[], city: string): Ranki
             const { temp, rain, snow, wind_speed: wind, weather } = day;
             const tempMax = temp.max;
             const weatherCode = weather[0].id;
+            const condition = mapWeatherCodeToCondition(weatherCode);
 
             let dailyScore = 0;
+
             switch (activity) {
-                case 'Skiing':
-                    dailyScore = 0.4 * Math.max(0, (5 - tempMax) / 5) + 0.4 * Math.min(snow / 10, 1) + 0.2 * Math.max(0, (5 - wind) / 5);
+                case ActivityType.SKIING:
+                    dailyScore = calculateSkiingScore(tempMax, snow, wind, condition);
                     break;
-                case 'Surfing':
-                    dailyScore = 0.4 * Math.min(Math.max(tempMax - 15, 0) / 10, 1) + 0.3 * (Math.abs(wind - 6) < 2 ? 1 : Math.max(0, 1 - Math.abs(wind - 6) / 4)) + 0.3 * Math.max(0, 1 - rain / 5);
+                case ActivityType.SURFING:
+                    dailyScore = calculateSurfingScore(tempMax, wind, rain, condition);
                     break;
-                case 'Outdoor sightseeing':
-                    dailyScore = 0.3 * (Math.abs(tempMax - 20) < 5 ? 1 : Math.max(0, 1 - Math.abs(tempMax - 20) / 10)) + 0.3 * Math.max(0, 1 - rain / 5) + 0.2 * Math.max(0, (5 - wind) / 5) + 0.2 * (weatherCode < 3 ? 1 : 0.5);  // WMO codes: 0-2 clear/cloudy
+                case ActivityType.OUTDOOR_SIGHTSEEING:
+                    dailyScore = calculateOutdoorSightseeingScore(tempMax, rain, wind, condition);
                     break;
-                case 'Indoor sightseeing':
-                    const outdoorScore = 0.3 * (Math.abs(tempMax - 20) < 5 ? 1 : Math.max(0, 1 - Math.abs(tempMax - 20) / 10)) + 0.3 * Math.max(0, 1 - rain / 5) + 0.2 * Math.max(0, (5 - wind) / 5) + 0.2 * (weatherCode < 3 ? 1 : 0.5);
+                case ActivityType.INDOOR_SIGHTSEEING:
+                    const outdoorScore = calculateOutdoorSightseeingScore(tempMax, rain, wind, condition);
                     dailyScore = 1 - outdoorScore;
                     break;
             }
@@ -55,6 +48,44 @@ export function computeRankings(dailyData: DailyForecast[], city: string): Ranki
         activity,
         score: Math.round(scores[activity]),
         rank: index + 1,
-        details: `Average over 7 days for ${city}`,
+        details: `Based on 7-day forecast for ${city}`,
     }));
+}
+
+function calculateSkiingScore(temp: number, snow: number, wind: number, condition: WeatherCondition): number {
+    const tempScore = Math.max(0, (5 - temp) / 10); // Ideal: below 5°C
+    const snowScore = Math.min(snow / 10, 1); // More snow is better
+    const windScore = Math.max(0, (10 - wind) / 10); // Lower wind is better
+    const conditionScore = condition === WeatherCondition.SNOW ? 1 :
+        condition === WeatherCondition.CLEAR ? 0.8 : 0.5;
+
+    return (tempScore * 0.3) + (snowScore * 0.4) + (windScore * 0.2) + (conditionScore * 0.1);
+}
+
+function calculateSurfingScore(temp: number, wind: number, rain: number, condition: WeatherCondition): number {
+    const tempScore = Math.min(Math.max(temp - 15, 0) / 15, 1); // Ideal: above 15°C
+    const windScore = Math.abs(wind - 8) < 4 ? 1 : Math.max(0, 1 - Math.abs(wind - 8) / 10); // Ideal: 4-12 m/s
+    const rainScore = Math.max(0, 1 - rain / 10); // Less rain is better
+    const conditionScore = condition !== WeatherCondition.THUNDERSTORM ? 0.8 : 0.2;
+
+    return (tempScore * 0.3) + (windScore * 0.4) + (rainScore * 0.2) + (conditionScore * 0.1);
+}
+
+function calculateOutdoorSightseeingScore(temp: number, rain: number, wind: number, condition: WeatherCondition): number {
+    const tempScore = Math.abs(temp - 20) < 10 ? 1 : Math.max(0, 1 - Math.abs(temp - 20) / 20); // Ideal: 10-30°C
+    const rainScore = Math.max(0, 1 - rain / 5); // Less rain is better
+    const windScore = Math.max(0, (15 - wind) / 15); // Lower wind is better
+    const conditionScore = [WeatherCondition.CLEAR, WeatherCondition.CLOUDY].includes(condition) ? 1 : 0.3;
+
+    return (tempScore * 0.4) + (rainScore * 0.3) + (windScore * 0.2) + (conditionScore * 0.1);
+}
+
+function mapWeatherCodeToCondition(code: number): WeatherCondition {
+    // WMO Weather interpretation codes (Open-Meteo)
+    if (code === 0) return WeatherCondition.CLEAR;
+    if (code <= 3) return WeatherCondition.CLOUDY;
+    if (code <= 67) return WeatherCondition.RAIN; // Drizzle and rain
+    if (code <= 77) return WeatherCondition.SNOW; // Snow and sleet
+    if (code <= 99) return WeatherCondition.THUNDERSTORM; // Thunderstorm
+    return WeatherCondition.CLOUDY;
 }
