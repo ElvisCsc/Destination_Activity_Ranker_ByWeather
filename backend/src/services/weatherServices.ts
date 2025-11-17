@@ -1,23 +1,68 @@
 import { fetchWeatherApi } from 'openmeteo';
 import axios from 'axios';
 import { computeRankings } from '../utils/scoring';
+import NodeCache from 'node-cache';
+import { GeocodeResponse, ActivityRankings } from '../types/weather';
+import { GraphQLError } from 'graphql';
 
-interface GeocodeResponse {
-    lat: string;
-    lon: string;
-    display_name: string;
+// --- Caching Setup ---
+// Cache for 1 hour (3600 seconds) for geocoding
+const geoCache = new NodeCache({ stdTTL: 3600 });
+// Cache for 15 minutes (900 seconds) for weather
+const weatherCache = new NodeCache({ stdTTL: 900 });
+
+const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/search';
+
+async function geocodeCity(city: string): Promise<GeocodeResponse> {
+    const cacheKey = `geocode:${city.toLowerCase()}`;
+    const cachedData = geoCache.get<GeocodeResponse>(cacheKey);
+
+    if (cachedData) {
+        console.log(`[Cache] HIT: Geocoding for ${city}`);
+        return cachedData;
+    }
+
+    console.log(`[Cache] MISS: Geocoding for ${city}`);
+    const geocodeUrl = `${NOMINATIM_BASE_URL}?q=${encodeURIComponent(city)}&format=json&limit=1`;
+
+    try {
+        const geocodeRes = await axios.get<GeocodeResponse[]>(geocodeUrl);
+
+        if (geocodeRes.data.length === 0) {
+            throw new GraphQLError('City not found', {
+                extensions: { code: 'CITY_NOT_FOUND' },
+            });
+        }
+
+        const location = geocodeRes.data[0];
+        geoCache.set(cacheKey, location);
+        return location;
+    } catch (error) {
+        if (error instanceof GraphQLError) {
+            throw error;
+        }
+        console.error('Geocoding API error:', error);
+        throw new GraphQLError('Failed to fetch geocoding data', {
+            extensions: { code: 'GEOCODING_API_ERROR' },
+        });
+    }
+
 }
 
 export async function getActivityRankings(city: string) {
     try {
-        const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`;
-        const geocodeRes = await axios.get<GeocodeResponse[]>(geocodeUrl);
+        const location = await geocodeCity(city);
+        const { lat, lon, display_name: name } = location;
 
-        if (geocodeRes.data.length === 0) {
-            throw new Error('City not found');
+        const cacheKey = `weather:${lat}:${lon}`;
+        const cachedData = weatherCache.get<ActivityRankings>(cacheKey);
+
+        if (cachedData) {
+            console.log(`[Cache] HIT: Weather for ${name}`);
+            return { ...cachedData, city: name };
         }
 
-        const { lat, lon, display_name: name } = geocodeRes.data[0];
+        console.log(`[Cache] MISS: Weather for ${name}`);
 
         const params = {
             latitude: parseFloat(lat),
@@ -44,7 +89,6 @@ export async function getActivityRankings(city: string) {
             weather_code: daily.variables(4)!.valuesArray()!,
         };
 
-        // Extract 7 days (skip if including past_days)
         const forecastDaily = Array.from({ length: 7 }, (_, i) => ({
             dt: dailyData.time[i].getTime() / 1000,
             temp: { max: dailyData.temperature_2m_max[i] },
@@ -56,8 +100,11 @@ export async function getActivityRankings(city: string) {
 
         // Compute rankings
         const rankings = computeRankings(forecastDaily, name);
+        const result: ActivityRankings = { city: name, rankings };
 
-        return { city: name, rankings };
+        // Save the computed rankings to the cache
+        weatherCache.set(cacheKey, result);
+        return result;
     } catch (error) {
         console.error('Weather service error:', error);
         throw new Error('Failed to fetch rankings');
