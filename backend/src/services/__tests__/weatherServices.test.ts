@@ -6,6 +6,7 @@ import {getActivityRankings} from '../weatherServices';
 import axios from 'axios';
 import {ByteBuffer} from "flatbuffers";
 import {fetchWeatherApi} from 'openmeteo';
+import {GraphQLError} from "graphql";
 
 // Mock dependencies
 jest.mock('axios');
@@ -109,6 +110,22 @@ describe('Weather Services', () => {
         expect(result.rankings[0]).toHaveProperty('activity');
         expect(result.rankings[0]).toHaveProperty('score');
         expect(result.rankings[0]).toHaveProperty('rank');
+    });
+
+    it('throws GraphQLError for invalid city', async () => {
+        mockedAxios.get.mockResolvedValueOnce({ data: [] });
+
+        await expect(getActivityRankings('InvalidCity')).rejects.toThrow(
+            new GraphQLError('City not found')
+        );
+    });
+
+    it('handles geocoding API errors gracefully', async () => {
+        mockedAxios.get.mockRejectedValueOnce(new Error('Network error'));
+
+        await expect(getActivityRankings('London')).rejects.toThrow(
+            new GraphQLError('Failed to fetch geocoding data')
+        );
     });
 
     it('throws error for invalid city', async () => {

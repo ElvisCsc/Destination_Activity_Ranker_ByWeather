@@ -1,8 +1,6 @@
 import { DailyForecast, ActivityType, ActivityRanking, WeatherCondition } from '../types/weather';
 
-type Activity = 'Skiing' | 'Surfing' | 'Outdoor sightseeing' | 'Indoor sightseeing';
-
-export function computeRankings(dailyData: DailyForecast[], city: string): ActivityRanking[] {
+function computeRankings(dailyData: DailyForecast[], city: string): ActivityRanking[] {
     if (dailyData.length === 0) throw new Error('No forecast data');
 
     const activities = Object.values(ActivityType);
@@ -75,7 +73,8 @@ function calculateOutdoorSightseeingScore(temp: number, rain: number, wind: numb
     const tempScore = Math.abs(temp - 20) < 10 ? 1 : Math.max(0, 1 - Math.abs(temp - 20) / 20); // Ideal: 10-30°C
     const rainScore = Math.max(0, 1 - rain / 5); // Less rain is better
     const windScore = Math.max(0, (15 - wind) / 15); // Lower wind is better
-    const conditionScore = [WeatherCondition.CLEAR, WeatherCondition.CLOUDY].includes(condition) ? 1 : 0.3;
+    const conditionScore = [WeatherCondition.CLEAR, WeatherCondition.CLOUDY].includes(condition) ? 1 :
+        condition === WeatherCondition.FOG ? 0.4 : 0.2; // Fog is not great, rain is worse
 
     return (tempScore * 0.4) + (rainScore * 0.3) + (windScore * 0.2) + (conditionScore * 0.1);
 }
@@ -83,9 +82,25 @@ function calculateOutdoorSightseeingScore(temp: number, rain: number, wind: numb
 function mapWeatherCodeToCondition(code: number): WeatherCondition {
     // WMO Weather interpretation codes (Open-Meteo)
     if (code === 0) return WeatherCondition.CLEAR;
-    if (code <= 3) return WeatherCondition.CLOUDY;
-    if (code <= 67) return WeatherCondition.RAIN; // Drizzle and rain
-    if (code <= 77) return WeatherCondition.SNOW; // Snow and sleet
-    if (code <= 99) return WeatherCondition.THUNDERSTORM; // Thunderstorm
+    if (code >= 1 && code <= 3) return WeatherCondition.CLOUDY;
+    if (code === 45 || code === 48) return WeatherCondition.FOG;
+    if (code >= 51 && code <= 57) return WeatherCondition.RAIN;
+    if (code >= 61 && code <= 67) return WeatherCondition.RAIN;
+    if (code >= 71 && code <= 77) return WeatherCondition.SNOW;
+    if (code >= 80 && code <= 82) return WeatherCondition.RAIN;
+    if (code >= 85 && code <= 86) return WeatherCondition.SNOW;
+
+    if (code === 95) return WeatherCondition.THUNDERSTORM;
+    if (code >= 96 && code <= 99) return WeatherCondition.THUNDERSTORM;
+
+    // Default to cloudy if unknown
     return WeatherCondition.CLOUDY;
 }
+
+export {
+    computeRankings,
+    calculateSkiingScore,
+    calculateSurfingScore,
+    calculateOutdoorSightseeingScore,
+    mapWeatherCodeToCondition
+};

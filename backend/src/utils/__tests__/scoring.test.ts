@@ -12,6 +12,11 @@ describe('Scoring Utilities', () => {
             expect(mapWeatherCodeToCondition(3)).toBe(WeatherCondition.CLOUDY);
         });
 
+        it('maps fog correctly', () => {
+            expect(mapWeatherCodeToCondition(45)).toBe(WeatherCondition.FOG);
+            expect(mapWeatherCodeToCondition(48)).toBe(WeatherCondition.FOG);
+        });
+
         it('maps rain correctly', () => {
             expect(mapWeatherCodeToCondition(51)).toBe(WeatherCondition.RAIN);
             expect(mapWeatherCodeToCondition(65)).toBe(WeatherCondition.RAIN);
@@ -78,6 +83,15 @@ describe('Scoring Utilities', () => {
             const hotScore = calculateOutdoorSightseeingScore(40, 0, 5, WeatherCondition.CLEAR);
             expect(coldScore).toBeLessThan(0.4);
             expect(hotScore).toBeLessThan(0.4);
+        });
+
+        it('gives a mediocre score for fog', () => {
+            const clearScore = calculateOutdoorSightseeingScore(22, 0, 5, WeatherCondition.CLEAR);
+            const fogScore = calculateOutdoorSightseeingScore(22, 0, 5, WeatherCondition.FOG);
+            const rainScore = calculateOutdoorSightseeingScore(22, 5, 5, WeatherCondition.RAIN);
+
+            expect(fogScore).toBeLessThan(clearScore);
+            expect(fogScore).toBeGreaterThan(rainScore);
         });
     });
 
