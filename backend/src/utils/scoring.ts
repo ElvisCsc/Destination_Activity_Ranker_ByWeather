@@ -16,7 +16,7 @@ function computeRankings(dailyData: DailyForecast[], city: string): ActivityRank
         dailyData.forEach(day => {
             const { temp, rain, snow, wind_speed: wind, weather } = day;
             const tempMax = temp.max;
-            const weatherCode = weather[0].id;
+            const weatherCode = weather[0]?.id ?? 0;
             const condition = mapWeatherCodeToCondition(weatherCode);
 
             let dailyScore = 0;
@@ -51,6 +51,9 @@ function computeRankings(dailyData: DailyForecast[], city: string): ActivityRank
 }
 
 function calculateSkiingScore(temp: number, snow: number, wind: number, condition: WeatherCondition): number {
+    // base case: If it's too warm (> 10°C), you can't ski.
+    if (temp > 10) return 0;
+
     const tempScore = Math.max(0, (5 - temp) / 10); // Ideal: below 5°C
     const snowScore = Math.min(snow / 10, 1); // More snow is better
     const windScore = Math.max(0, (10 - wind) / 10); // Lower wind is better
@@ -61,20 +64,32 @@ function calculateSkiingScore(temp: number, snow: number, wind: number, conditio
 }
 
 function calculateSurfingScore(temp: number, wind: number, rain: number, condition: WeatherCondition): number {
+    //Thunderstorms are dangerous.
+    if (condition === WeatherCondition.THUNDERSTORM) return 0.1;
+    //No wind = no waves (simplified logic).
+    if (wind < 3) return 0.2;
+
     const tempScore = Math.min(Math.max(temp - 15, 0) / 15, 1); // Ideal: above 15°C
-    const windScore = Math.abs(wind - 8) < 4 ? 1 : Math.max(0, 1 - Math.abs(wind - 8) / 10); // Ideal: 4-12 m/s
+    // Updated wind logic: Penalize low wind more heavily
+    const windScore = Math.abs(wind - 8) < 4 ? 1 : Math.max(0, 1 - Math.abs(wind - 8) / 10);
     const rainScore = Math.max(0, 1 - rain / 10); // Less rain is better
-    const conditionScore = condition !== WeatherCondition.THUNDERSTORM ? 0.8 : 0.2;
+    const conditionScore = 0.8;//condition !== WeatherCondition.THUNDERSTORM ? 0.8 : 0;
 
     return (tempScore * 0.3) + (windScore * 0.4) + (rainScore * 0.2) + (conditionScore * 0.1);
 }
 
 function calculateOutdoorSightseeingScore(temp: number, rain: number, wind: number, condition: WeatherCondition): number {
-    const tempScore = Math.abs(temp - 20) < 10 ? 1 : Math.max(0, 1 - Math.abs(temp - 20) / 20); // Ideal: 10-30°C
-    const rainScore = Math.max(0, 1 - rain / 5); // Less rain is better
-    const windScore = Math.max(0, (15 - wind) / 15); // Lower wind is better
+    // Deal breaker: Heavy rain ruins sightseeing.
+    if (rain > 5 || condition === WeatherCondition.RAIN) return 0.2;
+    // Penalize extreme heat (>35) or extreme cold (<-5)
+    if (temp > 35 || temp < -5) return 0.2;
+
+    const tempScore = Math.abs(temp - 20) < 10 ? 1 : Math.max(0, 1 - Math.abs(temp - 20) / 20);
+    const rainScore = Math.max(0, 1 - rain / 5);
+    const windScore = Math.max(0, (15 - wind) / 15);
+
     const conditionScore = [WeatherCondition.CLEAR, WeatherCondition.CLOUDY].includes(condition) ? 1 :
-        condition === WeatherCondition.FOG ? 0.4 : 0.2; // Fog is not great, rain is worse
+        condition === WeatherCondition.FOG ? 0.4 : 0.2;
 
     return (tempScore * 0.4) + (rainScore * 0.3) + (windScore * 0.2) + (conditionScore * 0.1);
 }

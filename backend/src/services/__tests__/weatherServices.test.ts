@@ -30,78 +30,55 @@ describe('Weather Services', () => {
             }]
         });
 
+        // Define the mock Daily object structure to satisfy the destructuring in weatherServices.ts
+        const mockDaily = {
+            // These should return numbers for the mock time values
+            time: jest.fn().mockReturnValue(1700000000), // Start time in ms
+            timeEnd: jest.fn().mockReturnValue(1700000000 + (7 * 86400 * 1000)), // End time for 7 days
+            interval: jest.fn().mockReturnValue(86400 * 1000), // Interval in ms (1 day)
+
+            // This is the array of values (temperatures, rain, etc.)
+            variables: jest.fn().mockImplementation((index: number) => ({
+                valuesArray: jest.fn().mockReturnValue(
+                    Array(7).fill(0).map((_, i) => {
+                        switch (index) {
+                            case 0: // temperature_2m_max
+                                return 10 + i;
+                            case 1: // rain_sum
+                                return i * 0.5;
+                            case 2: // snowfall_sum
+                                return 0;
+                            case 3: // wind_speed_10m_max
+                                return 5 + i;
+                            case 4: // weather_code
+                                return 1; // 1 = mainly clear
+                            default:
+                                return 0;
+                        }
+                    })
+                )
+            }))
+        };
         // Mock weather API response
         mockedFetchWeatherApi.mockResolvedValueOnce([{
-            daily: jest.fn().mockReturnValue({
-                time: jest.fn().mockReturnValue(1700000000),
-                timeEnd: jest.fn().mockReturnValue(1700600000),
-                interval: jest.fn().mockReturnValue(86400),
-                variables: jest.fn().mockImplementation((index: number) => ({
-                    valuesArray: jest.fn().mockReturnValue(
-                        Array(7).fill(0).map((_, i) => {
-                            switch (index) {
-                                case 0:
-                                    return 10 + i; // temperature
-                                case 1:
-                                    return i * 0.5; // rain
-                                case 2:
-                                    return 0; // snow
-                                case 3:
-                                    return 5 + i; // wind
-                                case 4:
-                                    return 1; // weather code (clear)
-                                default:
-                                    return 0;
-                            }
-                        })
-                    )
-                }))
-            }),
+            daily: jest.fn().mockReturnValue(mockDaily),
             bb: null,
             bb_pos: 0,
-            __init: function (i: number, bb: ByteBuffer): WeatherApiResponse {
-                throw new Error("Function not implemented.");
-            },
-            latitude: function (): number {
-                throw new Error("Function not implemented.");
-            },
-            longitude: function (): number {
-                throw new Error("Function not implemented.");
-            },
-            elevation: function (): number {
-                throw new Error("Function not implemented.");
-            },
-            generationTimeMilliseconds: function (): number {
-                throw new Error("Function not implemented.");
-            },
-            locationId: function (): bigint {
-                throw new Error("Function not implemented.");
-            },
-            model: function (): Model {
-                throw new Error("Function not implemented.");
-            },
-            utcOffsetSeconds: function (): number {
-                throw new Error("Function not implemented.");
-            },
-            timezone: function (): string | null {
-                throw new Error("Function not implemented.");
-            },
-            timezoneAbbreviation: function (): string | null {
-                throw new Error("Function not implemented.");
-            },
-            current: function (obj?: VariablesWithTime): VariablesWithTime | null {
-                throw new Error("Function not implemented.");
-            },
-            hourly: function (obj?: VariablesWithTime): VariablesWithTime | null {
-                throw new Error("Function not implemented.");
-            },
-            minutely15: function (obj?: VariablesWithTime): VariablesWithTime | null {
-                throw new Error("Function not implemented.");
-            },
-            monthly: function (obj?: VariablesWithMonth): VariablesWithMonth | null {
-                throw new Error("Function not implemented.");
-            }
-        }]);
+            __init: jest.fn(),
+            latitude: jest.fn(),
+            longitude: jest.fn(),
+            elevation: jest.fn(),
+            generationTimeMilliseconds: jest.fn(),
+            locationId: jest.fn(),
+            model: jest.fn(),
+            utcOffsetSeconds: jest.fn(),
+            timezone: jest.fn(),
+            timezoneAbbreviation: jest.fn(),
+            current: jest.fn(),
+            hourly: jest.fn(),
+            minutely15: jest.fn(),
+            monthly: jest.fn()
+        } as unknown as WeatherApiResponse]);
 
         const result = await getActivityRankings('New York');
 
@@ -114,10 +91,8 @@ describe('Weather Services', () => {
 
     it('throws GraphQLError for invalid city', async () => {
         mockedAxios.get.mockResolvedValueOnce({ data: [] });
-
-        await expect(getActivityRankings('InvalidCity')).rejects.toThrow(
-            new GraphQLError('City not found')
-        );
+        await expect(getActivityRankings('InvalidCity'))
+            .rejects.toThrow('City not found');
     });
 
     it('handles geocoding API errors gracefully', async () => {
@@ -126,12 +101,6 @@ describe('Weather Services', () => {
         await expect(getActivityRankings('London')).rejects.toThrow(
             new GraphQLError('Failed to fetch geocoding data')
         );
-    });
-
-    it('throws error for invalid city', async () => {
-        mockedAxios.get.mockResolvedValueOnce({ data: [] });
-
-        await expect(getActivityRankings('InvalidCity')).rejects.toThrow('City not found');
     });
 
     it('handles API errors gracefully', async () => {

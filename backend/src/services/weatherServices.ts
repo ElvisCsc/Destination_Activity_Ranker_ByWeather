@@ -46,7 +46,6 @@ async function geocodeCity(city: string): Promise<GeocodeResponse> {
             extensions: { code: 'GEOCODING_API_ERROR' },
         });
     }
-
 }
 
 export async function getActivityRankings(city: string) {
@@ -89,7 +88,7 @@ export async function getActivityRankings(city: string) {
             weather_code: daily.variables(4)!.valuesArray()!,
         };
 
-        const forecastDaily = Array.from({ length: 7 }, (_, i) => ({
+        const forecastDaily = Array.from({ length: params.forecast_days }, (_, i) => ({
             dt: dailyData.time[i].getTime() / 1000,
             temp: { max: dailyData.temperature_2m_max[i] },
             rain: dailyData.rain_sum[i],
@@ -107,6 +106,7 @@ export async function getActivityRankings(city: string) {
         return result;
     } catch (error) {
         console.error('Weather service error:', error);
-        throw new Error('Failed to fetch rankings');
+        if (error instanceof GraphQLError) throw error;
+        throw new GraphQLError('Failed to fetch rankings', { extensions: { code: 'WEATHER_ERROR', original: (error as Error).message } });
     }
 }
