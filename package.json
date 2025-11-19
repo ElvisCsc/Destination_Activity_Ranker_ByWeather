@@ -5,7 +5,12 @@
   "workspaces": ["backend", "frontend"],
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start:backend": "npm run start -w backend",
+    "start:frontend": "npm run start -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "start:all": "npm run dev:backend & npm run dev:frontend",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "repository": {
     "type": "git",
