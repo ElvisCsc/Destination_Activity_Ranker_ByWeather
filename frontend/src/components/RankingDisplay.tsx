@@ -1,16 +1,11 @@
 import React from 'react';
+import { ActivityRankings } from '../types/activity';
 
-interface RankingData {
-    city: string;
-    rankings: {
-        activity: string;
-        score: number;
-        rank: number;
-        details: string;
-    }[];
+interface RankingDisplayProps {
+    data: ActivityRankings;
 }
 
-const RankingDisplay: React.FC<{ data: RankingData }> = ({ data }) => {
+const RankingDisplay: React.FC<RankingDisplayProps> = ({ data }) => {
     const getActivityIcon = (activity: string) => {
         switch (activity) {
             case 'SKIING': return '⛷️';

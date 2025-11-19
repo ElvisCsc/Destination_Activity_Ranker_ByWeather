@@ -1,25 +1,15 @@
 import React, { useState } from 'react';
 import { useLazyQuery, gql } from '@apollo/client';
 import RankingDisplay from './components/RankingDisplay';
+import { GET_ACTIVITY_RANKINGS } from './graphql/queries';
+import { GetActivityRankingsResponse } from './types/activity';
 import './App.css';
-
-const GET_RANKINGS = gql`
-  query GetActivityRankings($city: String!) {
-    getActivityRankings(city: $city) {
-      city
-      rankings {
-        activity
-        score
-        rank
-        details
-      }
-    }
-  }
-`;
 
 function App() {
     const [city, setCity] = useState('');
-    const [getRankings, { loading, error, data }] = useLazyQuery(GET_RANKINGS);
+    const [getRankings, { loading, error, data }] = useLazyQuery<GetActivityRankingsResponse>(
+        GET_ACTIVITY_RANKINGS
+    );
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
